@@ -1,0 +1,43 @@
+const int TRIG_PIN = 12;
+const int ECHO_PIN = 11;
+
+const float SOUND_SPEED = 0.03343;  // Velocidade do som em cm/µs
+
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+}
+
+long medirDistanciaCm(){
+  digitalWrite(TRIG_PIN, LOW);  // Envia o sinal baixo para o pino TRIG
+  delayMicroseconds(2);  // Aguarda 2 microssegundos
+  
+  digitalWrite(TRIG_PIN, HIGH);  // Envia o sinal alto para o pino TRIG
+  delayMicroseconds(10);  // Mantém o sinal por 10 microssegundos
+  digitalWrite(TRIG_PIN, LOW);  // Volta o sinal para baixo
+
+  long duracao = pulseIn(ECHO_PIN, HIGH, 30000);  // Lê a duração do sinal
+
+  // Calcula a distância em cm
+  long distancia = (duracao * SOUND_SPEED) / 2;  
+  return distancia;
+}
+
+void loop() {
+  if (Serial.available()) {  // Verifica se há dados disponíveis na serial
+    String cmd = Serial.readStringUntil('\n');  // Lê até o caractere de nova linha
+    cmd.trim();  // Remove espaços em branco no início e no fim da string
+
+    if (cmd == "REQ") {  // Se o comando for "REQ"
+      long dist = medirDistanciaCm();  // Mede a distância
+
+      if (dist <= 0) {
+        Serial.println("------");
+      } else {
+        Serial.println(dist);  // Exibe a distância medida
+      }
+    }
+  }
+}
