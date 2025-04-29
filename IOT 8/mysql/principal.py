@@ -1,4 +1,5 @@
 from arduino_serial import Arduino
+from banco_mysql import Banco
 import time
 
 PORTA = "COM5"
@@ -8,6 +9,9 @@ INTERVALO = 1.0
 def principal():
     arduino = Arduino(port = PORTA, baudrate = BAUDRATE)
     arduino.conexao_aberta()
+    bd = Banco()
+    bd.criar_tabela()
+
     print("Iniciando leitura labial")
     try:
         while True:
@@ -16,6 +20,10 @@ def principal():
             resposta = arduino.receber()
             
             print (f"Distancia: {resposta} cm")
+            
+            bd.inserir_atualizar("rodrigo", 1, resposta)
+            
+            bd.listar()
             
             time.sleep(INTERVALO)
     except KeyboardInterrupt:
