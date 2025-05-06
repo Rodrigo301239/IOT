@@ -1,0 +1,157 @@
+#include <SPI.h>
+#include <Ethernet.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <DHT.h> // Biblioteca para o sensor DHT
+
+// Configurações do LCD
+LiquidCrystal_I2C lcd(0x27, 16, 2); // Endereço I2C
+
+// Caracteres personalizados para "DEIVI"
+byte D[8] = {
+  B11110,
+  B10001,
+  B10001,
+  B10001,
+  B10001,
+  B10001,
+  B11110,
+  B00000
+};
+
+byte E[8] = {
+  B11111,
+  B10000,
+  B10000,
+  B11110,
+  B10000,
+  B10000,
+  B11111,
+  B00000
+};
+
+byte I[8] = {
+  B11111,
+  B00100,
+  B00100,
+  B00100,
+  B00100,
+  B00100,
+  B11111,
+  B00000
+};
+
+byte V[8] = {
+  B10001,
+  B10001,
+  B10001,
+  B10001,
+  B01010,
+  B01010,
+  B00100,
+  B00000
+};
+
+// Ethernet CONFIGURAÇÃO
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x09 }; // MAC deve ser único
+IPAddress ip(192, 168, 1, 174);                      // Altere conforme necessário
+EthernetServer server(5000);
+
+// Pinos do LED e Ultrassônico
+const int LED = 7;
+const int TRIG = 8;
+const int ECHO = 9;
+
+// Configuração do sensor DHT (pino 2 é o pino de dados)
+#define DHTPIN 2
+#define DHTTYPE DHT11  // Use DHT22 se for o modelo DHT22
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+  // Inicializações
+  pinMode(LED, OUTPUT);
+  pinMode(TRIG, OUTPUT);
+  pinMode(ECHO, INPUT);
+
+  // Inicia Ethernet
+  Ethernet.begin(mac, ip);
+  server.begin();
+
+  // Inicia LCD e mostra "DEIVI"
+  lcd.begin(16, 2);
+  lcd.backlight();
+  lcd.createChar(0, D);
+  lcd.createChar(1, E);
+  lcd.createChar(2, I);
+  lcd.createChar(3, V);
+
+  lcd.setCursor(0, 0);
+  lcd.write(byte(0)); // D
+  lcd.write(byte(1)); // E
+  lcd.write(byte(2)); // I
+  lcd.write(byte(3)); // V
+  lcd.write(byte(2)); // I
+  
+  // Inicializa o sensor DHT
+  dht.begin();
+}
+
+void loop() {
+  EthernetClient client = server.available();
+  if (client) {
+    String cmd = client.readStringUntil('\n');
+    cmd.trim();
+
+    if (cmd == "ligar") {
+      digitalWrite(LED, HIGH);
+      client.println("OK");
+    } 
+    else if (cmd == "desligar") {
+      digitalWrite(LED, LOW);
+      client.println("OK");
+    } 
+    else if (cmd == "distancia") {
+      // Medindo a distância com o sensor ultrassônico
+      long duracao, distancia;
+
+      digitalWrite(TRIG, LOW);
+      delayMicroseconds(2);
+      digitalWrite(TRIG, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(TRIG, LOW);
+
+      duracao = pulseIn(ECHO, HIGH, 30000); // Timeout de 30 ms
+      distancia = duracao * 0.034 / 2;
+
+      lcd.setCursor(0, 1);
+      lcd.print("Dist: ");
+      lcd.print(distancia);
+      lcd.print("cm   "); // Limpa sobra
+
+      client.println(distancia); // Envia para Python
+    }
+    else if (cmd == "temperatura") {
+      // Lê temperatura e umidade do DHT
+      float temperatura = dht.readTemperature();  // Temperatura em Celsius
+      float umidade = dht.readHumidity();        // Umidade relativa
+
+      if (isnan(temperatura) || isnan(umidade)) {
+        client.println("Falha ao ler o sensor DHT");
+      } else {
+        lcd.setCursor(0, 1);
+        lcd.print("Temp: ");
+        lcd.print(temperatura);
+        lcd.print("C  ");
+
+        lcd.setCursor(0, 0);
+        lcd.print("Umid: ");
+        lcd.print(umidade);
+        lcd.print("%  ");
+
+        client.println("Temperatura: " + String(temperatura) + "C, Umidade: " + String(umidade) + "%");
+      }
+    }
+
+    client.stop();
+  }
+}
