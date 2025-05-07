@@ -1,0 +1,66 @@
+#include <SPI.h>
+#include <Ethernet.h>  // Incluir a biblioteca Ethernet
+
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x07 };
+IPAddress ip(192, 168, 1, 105);
+EthernetServer server(5000);
+const float SOUND_SPEED = 0.0343;
+const int LED = 7;
+const int TRIG_PIN = 5;
+const int ECHO_PIN = 6;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(LED, OUTPUT);
+  Ethernet.begin(mac, ip);  // Usando mac5 aqui
+  server.begin();
+}
+
+long medirDistanciaCm(){
+  // 1) Limpa o TRIG
+  digitalWrite (TRIG_PIN, LOW);
+  delayMicroseconds (2);
+
+  // 2) Dispara pulsos de 10ps
+  digitalWrite (TRIG_PIN, HIGH);
+  delayMicroseconds (10);
+  digitalWrite (TRIG_PIN, LOW);
+
+  // 3)Modo duraçãodo pulso de retorno
+  long duracao = pulseIn (ECHO_PIN, HIGH, 30000);
+  // timeout de 30ms para não travar indefinide
+
+  // 4) converte para centimetros
+  long distancia = (duracao * SOUND_SPEED) / 2.0;
+  return distancia;
+}
+
+void loop() {
+  EthernetClient client = server.available();
+  if (client) {
+    String cmd = client.readStringUntil('\n');
+    cmd.trim();
+
+    if (cmd == "ligar") {
+      digitalWrite(LED, HIGH);
+      client.println("Ligado\n");
+    }
+    else if (cmd == "desligar") {
+      digitalWrite(LED, LOW);  // Corrigido para LED
+      client.println("Desligado\n");
+    }
+    else if (cmd == "distancia"){
+      long dist = medirDistanciaCm ();
+      
+      if (dist <= 0){
+        client.println("------");
+      }
+      else {
+        client.println(dist);
+      }
+    }
+    client.stop();
+  }
+}

@@ -1,0 +1,30 @@
+#include <SPI.h>
+#include <Ethernet.h>  // Incluir a biblioteca Ethernet
+
+byte mac5[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x07 };
+IPAddress ip(192, 168, 1, 105);
+EthernetServer server(5000);
+const int LED = 7;
+
+void setup() {
+  pinMode(LED, OUTPUT);
+  Ethernet.begin(mac5, ip);  // Usando mac5 aqui
+  server.begin();
+}
+
+void loop() {
+  EthernetClient client = server.available();
+  if (client) {
+    String cmd = client.readStringUntil('\n');
+    cmd.trim();
+
+    if (cmd == "igar") {
+      digitalWrite(LED, HIGH);
+    }
+    else if (cmd == "desligar") {
+      digitalWrite(LED, LOW);  // Corrigido para LED
+    }
+    client.println("OK\n");
+    client.stop();
+  }
+}
